@@ -84,8 +84,8 @@ jnd_milwaukee <- get_route(origin = "JND_at_North_Shore",
                            intermediate = "E_Wash_at_First",
                            request_body = request_body)
 jnd_milwaukee_willy <- get_route(origin = "JND_at_North_Shore",
-                                 destination = "Willy_at_Ingersoll",
-                                 intermediate = "E_Wash_at_First",
+                                 intermediate = "Willy_at_Ingersoll",
+                                 destination = "E_Wash_at_First",
                                  request_body = request_body)
 
 olbrich_jnd <- get_route(origin = "Olbrich_boat_launch",
