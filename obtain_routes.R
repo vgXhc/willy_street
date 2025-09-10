@@ -1,13 +1,16 @@
 #key is in ROUTES_API_KEY
 
-library(mapsapi)
-
-route <- mp_directions(key = Sys.getenv("ROUTES_API_KEY"),
-                       origin = "172 John Nolen Dr, Madison, WI 53715", 
-                       destination = "Olbrich Park Boat Launch, 3401 Atwood Ave, Madison, WI 53704")
-
-
 library(httr2)
+library(pins)
+library(tidyverse)
+
+board <- board_s3("willy2", 
+                  region = "us-east-1", 
+                  access_key = Sys.getenv("S3_WILLY_KEY"), 
+                  secret_access_key = Sys.getenv("S3_WILLY_SECRET"))
+
+full_routes_pre <- pin_read(board, "full_routes")
+
 
 # a list of origins and destinations, using Google's PlaceID format. 
 # PlaceIDs can be interactively obtained here: https://developers.google.com/maps/documentation/places/web-service/place-id
@@ -15,18 +18,16 @@ OD <- list(
   "JND_at_North_Shore" = "EjJKb2huIE5vbGVuIERyICYgTiBTaG9yZSBEciwgTWFkaXNvbiwgV0kgNTM3MDMsIFVTQSJmImQKFAoSCXu5mjo7UwaIEQoMsRKsOd_lEhQKEgl7uZo6O1MGiBEKDLESrDnf5RoUChIJjfKfA-BSBogRYsWXJvaejFUaFAoSCXuIPEYlUwaIEXg83UWw3DMxIgoNpX6rGRXEzrjK",
   "Olbrich_boat_launch" = "ChIJ5TFo0_BTBogRiLW3n_CHw1g",
   "Willy_at_Ingersoll" = "EjZXaWxsaWFtc29uIFN0ICYgUyBJbmdlcnNvbGwgU3QsIE1hZGlzb24sIFdJIDUzNzAzLCBVU0EiZiJkChQKEgl5M0JHcVMGiBGPw2HWAUYh8hIUChIJeTNCR3FTBogRj8Nh1gFGIfIaFAoSCU95EHRxUwaIEWK02CjjGAaNGhQKEgnVLyMUcVMGiBGluqGTTsODeCIKDeLLrRkVHs-7yg",
-  "E_Wash_at_Milwaukee" = "EjdFIFdhc2hpbmd0b24gQXZlICYgTWlsd2F1a2VlIFN0LCBNYWRpc29uLCBXSSA1MzcwNCwgVVNBImYiZAoUChIJUc7xKnFUBogRwRIyIhvYO_MSFAoSCVHO8SpxVAaIEcESMiIb2DvzGhQKEglb_GtKEVQGiBGDTq5ArHySmxoUChIJ384s9rVWBogRKuqY4yFj-BEiCg2_lLAZFXd5vso"
+  "E_Wash_at_Milwaukee" = "EjdFIFdhc2hpbmd0b24gQXZlICYgTWlsd2F1a2VlIFN0LCBNYWRpc29uLCBXSSA1MzcwNCwgVVNBImYiZAoUChIJUc7xKnFUBogRwRIyIhvYO_MSFAoSCVHO8SpxVAaIEcESMiIb2DvzGhQKEglb_GtKEVQGiBGDTq5ArHySmxoUChIJ384s9rVWBogRKuqY4yFj-BEiCg2_lLAZFXd5vso",
+  "E_Wash_at_First" = "EjVFIFdhc2hpbmd0b24gQXZlICYgTiBGaXJzdCBTdCwgTWFkaXNvbiwgV0kgNTM3MDQsIFVTQSJmImQKFAoSCeMnhbmBUwaIEYkYcoZtUER5EhQKEgnjJ4W5gVMGiBGJGHKGbVBEeRoUChIJW_xrShFUBogRg06uQKx8kpsaFAoSCcmDLdWBUwaIEbdQz9fubXyjIgoNklqvGRUY4LzK"
 )
 
-origins_destinations$JND_at_North_Shore
+
 #Define the request body as a list
 request_body <- list(
-  origin = list(
-    placeId = "EikxNzIgSm9obiBOb2xlbiBEciwgTWFkaXNvbiwgV0kgNTM3MTUsIFVTQSIxEi8KFAoSCXu5mjo7UwaIETr2Hgb_iyscEKwBKhQKEgmN8p8D4FIGiBFixZcm9p6MVQ"
-    ),
-  destination = list(
-    placeId = "ChIJ5TFo0_BTBogRiLW3n_CHw1g"
-  ),
+  origin = list(),
+  destination = list(),
+  intermediates = list(),
   travelMode = "DRIVE",
   routingPreference = "TRAFFIC_AWARE",
   computeAlternativeRoutes = FALSE,
@@ -34,24 +35,120 @@ request_body <- list(
   units = "METRIC"
 )
 
-request_body |> req_body_json_modify(origin = list(
-  placeId = OD$JND_at_North_Shore))
+# main function to obtain route
+get_route <- function(origin, destination, intermediate, request_body) {
 
-# Make the API request
+# Built the API request
 response <- request("https://routes.googleapis.com/directions/v2:computeRoutes") %>%
   req_method("POST") %>%
   req_headers(
     "Content-Type" = "application/json",
     "X-Goog-Api-Key" = Sys.getenv("ROUTES_API_KEY"),
-    "X-Goog-FieldMask" = "routes.duration,routes.staticDuration,routes.distanceMeters,routes.polyline.encodedPolyline"
+    "X-Goog-FieldMask" = "routes.duration,routes.description,routes.staticDuration,routes.distanceMeters,routes.polyline.encodedPolyline"
   ) %>%
   req_body_json(request_body) %>%
   req_body_json_modify(origin = list(
-    placeId = OD$JND_at_North_Shore)) |> 
-  req_dry_run()
+    placeId = OD[[origin]]),
+    destination = list(
+      placeId = OD[[destination]]
+    ),
+    intermediates = list(
+      placeId = OD[[intermediate]]
+    )) |> 
+  req_perform()
 
 # Parse the response
 result <- response %>% resp_body_json()
 
-# View the result
-str(result)
+routes <- result$routes[[1]]
+# Return the results as named list
+return(tibble(
+  origin = origin,
+  destination = destination,
+  intermediate = intermediate,
+  distance = routes$distanceMeters,
+  duration = routes$duration,
+  static_duration = routes$staticDuration,
+  polyline = routes$polyline$encodedPolyline,
+  request_time = Sys.time()
+))
+}
+
+jnd_olbrich <- get_route(origin = "JND_at_North_Shore", 
+          destination = "Olbrich_boat_launch",
+          intermediate = "Willy_at_Ingersoll",
+          request_body = request_body)
+
+jnd_milwaukee <- get_route(origin = "JND_at_North_Shore",
+                           destination = "E_Wash_at_Milwaukee",
+                           intermediate = "E_Wash_at_First",
+                           request_body = request_body)
+jnd_milwaukee_willy <- get_route(origin = "JND_at_North_Shore",
+                                 destination = "Willy_at_Ingersoll",
+                                 intermediate = "E_Wash_at_First",
+                                 request_body = request_body)
+
+olbrich_jnd <- get_route(origin = "Olbrich_boat_launch",
+                         destination = "JND_at_North_Shore",
+                         intermediate = "Willy_at_Ingersoll",
+                         request_body = request_body)
+
+milwaukee_jnd <- get_route(destination = "JND_at_North_Shore",
+                           origin = "E_Wash_at_Milwaukee",
+                           intermediate = "E_Wash_at_First",
+                           request_body = request_body)
+
+milwaukee_jnd_willy <- get_route(destination = "JND_at_North_Shore",
+                                 origin = "E_Wash_at_Milwaukee",
+                                 intermediate = "Willy_at_Ingersoll",
+                                 request_body = request_body)
+
+full_routes <- bind_rows(full_routes_pre,
+                         jnd_olbrich, 
+          jnd_milwaukee_willy, 
+          jnd_milwaukee, 
+          olbrich_jnd, 
+          milwaukee_jnd, 
+          milwaukee_jnd_willy)
+
+board |> pin_write(full_routes, "full_routes", versioned = T, type = "rds")
+
+polyline_to_sf <- function(polyline_string) {
+  # Decode the polyline to get lat/lng coordinates
+  coords <- googlePolylines::decode(polyline_string)
+  
+  coords <- coords[[1]]
+  
+  # Create an sf LINESTRING object
+  linestring <- st_linestring(as.matrix(coords[, c("lon", "lat")]))
+  
+  # Create sf object with CRS (WGS84)
+  sf_object <- st_sf(
+    geometry = st_sfc(linestring, crs = 4326)
+  )
+  
+  return(sf_object)
+}
+
+
+route_sf <- polyline_to_sf(result$routes[[1]]$polyline$encodedPolyline)
+
+
+
+tm_shape(route_sf) +
+  tm_lines()
+
+
+my_data <- list(
+  "route_1" = data.frame(lat = c(37.4, 37.5), lon = c(-122.0, -122.1)),
+  "route_2" = data.frame(lat = c(38.0, 38.1), lon = c(-121.5, -121.6)),
+  "settings" = list(units = "metric", mode = "driving"),
+  "metadata" = "example data"
+)
+
+# Method 1: Direct access (assumes specific list name)
+get_from_my_data <- function(key) {
+  return(my_data[[key]])
+}
+
+get_from_my_data("route_1")
