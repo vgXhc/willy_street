@@ -1,4 +1,4 @@
-#key is in ROUTES_API_KEY
+
 
 library(httr2)
 library(pins)
@@ -113,42 +113,3 @@ full_routes <- bind_rows(full_routes_pre,
 
 board |> pin_write(full_routes, "full_routes", versioned = T, type = "rds")
 
-polyline_to_sf <- function(polyline_string) {
-  # Decode the polyline to get lat/lng coordinates
-  coords <- googlePolylines::decode(polyline_string)
-  
-  coords <- coords[[1]]
-  
-  # Create an sf LINESTRING object
-  linestring <- st_linestring(as.matrix(coords[, c("lon", "lat")]))
-  
-  # Create sf object with CRS (WGS84)
-  sf_object <- st_sf(
-    geometry = st_sfc(linestring, crs = 4326)
-  )
-  
-  return(sf_object)
-}
-
-
-route_sf <- polyline_to_sf(result$routes[[1]]$polyline$encodedPolyline)
-
-
-
-tm_shape(route_sf) +
-  tm_lines()
-
-
-my_data <- list(
-  "route_1" = data.frame(lat = c(37.4, 37.5), lon = c(-122.0, -122.1)),
-  "route_2" = data.frame(lat = c(38.0, 38.1), lon = c(-121.5, -121.6)),
-  "settings" = list(units = "metric", mode = "driving"),
-  "metadata" = "example data"
-)
-
-# Method 1: Direct access (assumes specific list name)
-get_from_my_data <- function(key) {
-  return(my_data[[key]])
-}
-
-get_from_my_data("route_1")
