@@ -1,0 +1,62 @@
+name: run_routes
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 6:30 AM CST (12:30 PM UTC)
+    - cron: '30 12 * * *'
+    # 7:00 AM CST (1:00 PM UTC)
+    - cron: '0 13 * * *'
+    # 7:30 AM CST (1:30 PM UTC)
+    - cron: '30 13 * * *'
+    # 8:00 AM CST (2:00 PM UTC)
+    - cron: '0 14 * * *'
+    # 8:30 AM CST (2:30 PM UTC)
+    - cron: '30 14 * * *'
+    # 9:00 AM CST (3:00 PM UTC)
+    - cron: '0 15 * * *'
+    # 9:30 AM CST (3:30 PM UTC)
+    - cron: '30 15 * * *'
+    # 10:00 AM CST (4:00 PM UTC)
+    - cron: '0 16 * * *'
+    # 12:00 PM CST (6:00 PM UTC)
+    - cron: '0 18 * * *'
+    # 2:00 PM CST (8:00 PM UTC)
+    - cron: '0 20 * * *'
+    # 3:00 PM CST (9:00 PM UTC)
+    - cron: '0 21 * * *'
+    # 3:30 PM CST (9:30 PM UTC)
+    - cron: '30 21 * * *'
+    # 4:00 PM CST (10:00 PM UTC)
+    - cron: '0 22 * * *'
+    # 4:30 PM CST (10:30 PM UTC)
+    - cron: '30 22 * * *'
+    # 5:00 PM CST (11:00 PM UTC)
+    - cron: '0 23 * * *'
+    # 5:30 PM CST (11:30 PM UTC)
+    - cron: '30 23 * * *'
+    # 6:00 PM CST (12:00 AM UTC next day)
+    - cron: '0 0 * * *'
+    # 7:00 PM CST (1:00 AM UTC next day)
+    - cron: '0 1 * * *'
+    # 8:00 PM CST (2:00 AM UTC next day)
+    - cron: '0 2 * * *'
+    # 10:00 PM CST (4:00 AM UTC next day)
+    - cron: '0 4 * * *'
+    # 12:00 AM CST (6:00 AM UTC)
+    - cron: '0 6 * * *'
+
+
+jobs:
+  update_routes:
+    runs-on: macOS-latest
+    env:
+      S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: r-lib/actions/setup-r@v2
+      - name: Install required packages
+        run: Rscript -e 'install.packages(c("pins", "tidyverse", "httr2"), dependencies = TRUE)'
+      - name: Run R script to update crashes
+        run: Rscript obtain_routes.R
