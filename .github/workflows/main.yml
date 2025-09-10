@@ -51,8 +51,9 @@ jobs:
   update_routes:
     runs-on: macOS-latest
     env:
-      S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
-      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+      S3_ACCESS_KEY: ${{ secrets.S3_WILLY_KEY }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_WILLY_SECRET }}
+      ROUTES_API_KEY: ${{ secrets.ROUTES_API_KEY }}
     steps:
       - uses: actions/checkout@v2
       - uses: r-lib/actions/setup-r@v2
