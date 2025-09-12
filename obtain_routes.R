@@ -19,7 +19,10 @@ OD <- list(
   "Olbrich_boat_launch" = "ChIJ5TFo0_BTBogRiLW3n_CHw1g",
   "Willy_at_Ingersoll" = "EjZXaWxsaWFtc29uIFN0ICYgUyBJbmdlcnNvbGwgU3QsIE1hZGlzb24sIFdJIDUzNzAzLCBVU0EiZiJkChQKEgl5M0JHcVMGiBGPw2HWAUYh8hIUChIJeTNCR3FTBogRj8Nh1gFGIfIaFAoSCU95EHRxUwaIEWK02CjjGAaNGhQKEgnVLyMUcVMGiBGluqGTTsODeCIKDeLLrRkVHs-7yg",
   "E_Wash_at_Milwaukee" = "EjdFIFdhc2hpbmd0b24gQXZlICYgTWlsd2F1a2VlIFN0LCBNYWRpc29uLCBXSSA1MzcwNCwgVVNBImYiZAoUChIJUc7xKnFUBogRwRIyIhvYO_MSFAoSCVHO8SpxVAaIEcESMiIb2DvzGhQKEglb_GtKEVQGiBGDTq5ArHySmxoUChIJ384s9rVWBogRKuqY4yFj-BEiCg2_lLAZFXd5vso",
-  "E_Wash_at_First" = "EjVFIFdhc2hpbmd0b24gQXZlICYgTiBGaXJzdCBTdCwgTWFkaXNvbiwgV0kgNTM3MDQsIFVTQSJmImQKFAoSCeMnhbmBUwaIEYkYcoZtUER5EhQKEgnjJ4W5gVMGiBGJGHKGbVBEeRoUChIJW_xrShFUBogRg06uQKx8kpsaFAoSCcmDLdWBUwaIEbdQz9fubXyjIgoNklqvGRUY4LzK"
+  "E_Wash_at_First" = "EjVFIFdhc2hpbmd0b24gQXZlICYgTiBGaXJzdCBTdCwgTWFkaXNvbiwgV0kgNTM3MDQsIFVTQSJmImQKFAoSCeMnhbmBUwaIEYkYcoZtUER5EhQKEgnjJ4W5gVMGiBGJGHKGbVBEeRoUChIJW_xrShFUBogRg06uQKx8kpsaFAoSCcmDLdWBUwaIEbdQz9fubXyjIgoNklqvGRUY4LzK",
+  "Wilson_at_Willy" = "EjNFIFdpbHNvbiBTdCAmIFdpbGxpYW1zb24gU3QsIE1hZGlzb24sIFdJIDUzNzAzLCBVU0EiZiJkChQKEgnhym9La1MGiBGcY9ohN_QfmhIUChIJ4cpvS2tTBogRnGPaITf0H5oaFAoSCfVVbLltUwaIEeqhwVpfun4hGhQKEglPeRB0cVMGiBFitNgo4xgGjSIKDdbmrBkVlla6yg",
+  "Eastwood_at_Winnebago" = "EjJFYXN0d29vZCBEciAmIFdpbm5lYmFnbyBTdCwgTWFkaXNvbiwgV0kgNTM3MDQsIFVTQSJmImQKFAoSCeNrPLqDUwaIEffZcIG93NP9EhQKEgnjazy6g1MGiBH32XCBvdzT_RoUChIJ9SfChYZTBogRf5DI8zHQBHYaFAoSCVkZZw6HUwaIESCTKdLOYzU9IgoNnNiuGRW5G73K"
+  
 )
 
 
@@ -103,13 +106,24 @@ milwaukee_jnd_willy <- get_route(destination = "JND_at_North_Shore",
                                  intermediate = "Willy_at_Ingersoll",
                                  request_body = request_body)
 
+hairball_eastwood <- get_route(origin = "Wilson_at_Willy",
+                               destination = "Eastwood_at_Winnebago",
+                               intermediate = "Willy_at_Ingersoll",
+                               request_body = request_body)
+eastwood_hairball <- get_route(destination = "Wilson_at_Willy",
+                               origin = "Eastwood_at_Winnebago",
+                               intermediate = "Willy_at_Ingersoll",
+                               request_body = request_body)
+
 full_routes <- bind_rows(full_routes_pre,
                          jnd_olbrich, 
           jnd_milwaukee_willy, 
           jnd_milwaukee, 
           olbrich_jnd, 
           milwaukee_jnd, 
-          milwaukee_jnd_willy)
+          milwaukee_jnd_willy,
+          hairball_eastwood,
+          eastwood_hairball)
 
 board |> pin_write(full_routes, "full_routes", versioned = T, type = "rds")
 
