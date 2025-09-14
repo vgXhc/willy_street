@@ -14,7 +14,7 @@ The [analysis script](https://github.com/vgXhc/willy_street/blob/main/analysis.R
 | `intermediate` | string | Forced intermediate waypoint on route (to ensure consistent routing) |
 | `distance` | integer | route distance in meters |
 | `duration` | integer | route duration in seconds, with traffic conditions at `request_time` |
-| `static_duration ` | integer | route duration in seconds, "considering only historical traffic information" |
+| `static_duration` | integer | route duration in seconds, "considering only historical traffic information" |
 | `polyline` | string | Google [polyline](https://developers.google.com/maps/documentation/utilities/polylinealgorithm) encoded coordinates of the route |
 | `request_time` | POSIX date/time | Time at which the route was calculated, using local Madison time |
 | `route_id` | string | human-readable short description of the route |
@@ -24,4 +24,3 @@ The [analysis script](https://github.com/vgXhc/willy_street/blob/main/analysis.R
 | ` weekend` | Boolean | Was the route calculated on a weekend (`TRUE`) or not (`FALSE`) |
 | `rush_hour` | string | Was the route calculated when the rush hour lanes would have been in effect? Possible values are `am` and `pm` (may later replace this with TRUE/FALSE to take into account the relevant `direction`) |
 
-| git diff | Show file differences that haven't been staged |
