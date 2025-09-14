@@ -1,5 +1,3 @@
-
-
 library(httr2)
 library(pins)
 library(tidyverse)
@@ -22,7 +20,6 @@ OD <- list(
   "E_Wash_at_First" = "EjVFIFdhc2hpbmd0b24gQXZlICYgTiBGaXJzdCBTdCwgTWFkaXNvbiwgV0kgNTM3MDQsIFVTQSJmImQKFAoSCeMnhbmBUwaIEYkYcoZtUER5EhQKEgnjJ4W5gVMGiBGJGHKGbVBEeRoUChIJW_xrShFUBogRg06uQKx8kpsaFAoSCcmDLdWBUwaIEbdQz9fubXyjIgoNklqvGRUY4LzK",
   "Wilson_at_Willy" = "EjNFIFdpbHNvbiBTdCAmIFdpbGxpYW1zb24gU3QsIE1hZGlzb24sIFdJIDUzNzAzLCBVU0EiZiJkChQKEgnhym9La1MGiBGcY9ohN_QfmhIUChIJ4cpvS2tTBogRnGPaITf0H5oaFAoSCfVVbLltUwaIEeqhwVpfun4hGhQKEglPeRB0cVMGiBFitNgo4xgGjSIKDdbmrBkVlla6yg",
   "Eastwood_at_Winnebago" = "EjJFYXN0d29vZCBEciAmIFdpbm5lYmFnbyBTdCwgTWFkaXNvbiwgV0kgNTM3MDQsIFVTQSJmImQKFAoSCeNrPLqDUwaIEffZcIG93NP9EhQKEgnjazy6g1MGiBH32XCBvdzT_RoUChIJ9SfChYZTBogRf5DI8zHQBHYaFAoSCVkZZw6HUwaIESCTKdLOYzU9IgoNnNiuGRW5G73K"
-  
 )
 
 
@@ -77,7 +74,7 @@ return(tibble(
 ))
 }
 
-jnd_olbrich <- get_route(origin = "JND_at_North_Shore", 
+jnd_olbrich <- get_route(origin = "JND_at_North_Shore",
           destination = "Olbrich_boat_launch",
           intermediate = "Willy_at_Ingersoll",
           request_body = request_body)
@@ -115,15 +112,19 @@ eastwood_hairball <- get_route(destination = "Wilson_at_Willy",
                                intermediate = "Willy_at_Ingersoll",
                                request_body = request_body)
 
-full_routes <- bind_rows(full_routes_pre,
-                         jnd_olbrich, 
-          jnd_milwaukee_willy, 
-          jnd_milwaukee, 
-          olbrich_jnd, 
-          milwaukee_jnd, 
-          milwaukee_jnd_willy,
-          hairball_eastwood,
-          eastwood_hairball)
+full_routes <- bind_rows(
+  full_routes_pre,
+  jnd_olbrich,
+  jnd_milwaukee_willy,
+  jnd_milwaukee,
+  olbrich_jnd,
+  milwaukee_jnd,
+  milwaukee_jnd_willy,
+  hairball_eastwood,
+  eastwood_hairball
+)
 
-board |> pin_write(full_routes, "full_routes", versioned = T, type = "rds")
-
+board |> pin_write(full_routes,
+                   "full_routes",
+                   versioned = TRUE,
+                   type = "rds")

@@ -43,11 +43,13 @@ full_routes_pre |>
                              "JND to Milwaukee via E Wash",
                              "JND to Milwaukee via Willy",
                              "Hairball to Eastwood") ~ "EB",.default = "WB"),
+    day_of_week = wday(request_time, label = TRUE),
+    weekend = ifelse(day_of_week %in% c("Sat", "Sun"), TRUE, FALSE), 
     rush_hour = case_when(
-      hour(request_time) == 7 | (hour(request_time) == 8 & minute(request_time) <= 30) ~ "am",
-      hour(request_time) == 16 | (hour(request_time) == 17 & minute(request_time) <= 30) ~ "pm",
+      !weekend & (hour(request_time) == 7 | (hour(request_time) == 8 & minute(request_time) <= 30)) ~ "am",
+      !weekend & (hour(request_time) == 16 | (hour(request_time) == 17 & minute(request_time) <= 30)) ~ "pm",
       .default = NA)
-  ) |> 
+  ) |>
   filter(!is.na(route_id)) |> 
   ggplot(aes(request_time, traffic_delay, color = rush_hour)) +
   geom_point() +
