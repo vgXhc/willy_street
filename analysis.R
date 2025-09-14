@@ -8,7 +8,7 @@ board <- board_s3("willy2",
 
 full_routes_pre <- pin_read(board, "full_routes")
 
-full_routes_pre |> 
+full_routes <- full_routes_pre |> 
   filter(!(origin == "JND_at_North_Shore" & destination == "Willy_at_Ingersoll")) |> 
   mutate(route_id = case_when(
     origin == "JND_at_North_Shore" & 
@@ -50,7 +50,9 @@ full_routes_pre |>
       !weekend & (hour(request_time) == 16 | (hour(request_time) == 17 & minute(request_time) <= 30)) ~ "pm",
       .default = NA)
   ) |>
-  filter(!is.na(route_id)) |> 
+  filter(!is.na(route_id))
+
+full_routes |> 
   ggplot(aes(request_time, traffic_delay, color = rush_hour)) +
   geom_point() +
   #gghighlight::gghighlight(rush_hour %in% c("am", "pm")) +
