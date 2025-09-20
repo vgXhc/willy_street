@@ -24,6 +24,6 @@ A raw data set is committed after each run in [`data/data_raw.csv`](data/data_ra
 | `traffic_delay` | int | difference between travel time with current traffic and using only historical traffic (i.e. `duration - static_duration`) |
 | `direction` | string | Whether the route travels eastbound (`EB`) or westbound (`WB`) through the isthmus |
 | `day_of_week` | ordered factor | Abbreviated day of week (`Mon`, `Tue`, etc.) |
-| ` weekend` | Boolean | Was the route calculated on a weekend (`TRUE`) or not (`FALSE`) |
+| `weekend` | Boolean | Was the route calculated on a weekend (`TRUE`) or not (`FALSE`) |
 | `rush_hour` | string | Was the route calculated when the rush hour lanes would have been in effect? Possible values are `am` and `pm` (may later replace this with TRUE/FALSE to take into account the relevant `direction`) |
 
