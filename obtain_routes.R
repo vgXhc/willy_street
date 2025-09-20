@@ -129,7 +129,7 @@ board |> pin_write(full_routes,
                    versioned = TRUE,
                    type = "rds")
 
-full_routes |> write_csv(file = "data_raw.csv")
+full_routes |> write_csv(file = "data/data_raw.csv")
 
 # basic data cleaning and variable creation
 full_routes_clean <- full_routes |> 
