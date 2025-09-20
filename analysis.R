@@ -53,7 +53,7 @@ full_routes <- full_routes_pre |>
   filter(!is.na(route_id))
 
 full_routes |> 
-  ggplot(aes(request_time, traffic_delay, color = rush_hour)) +
+  ggplot(aes(request_time, duration, color = rush_hour)) +
   geom_point() +
   #gghighlight::gghighlight(rush_hour %in% c("am", "pm")) +
   facet_wrap(vars(direction, route_id), nrow = 2) +
@@ -62,8 +62,25 @@ full_routes |>
   xlab(element_blank()) +
   ylab("Traffic delay (seconds)") +
   labs(
-    title = "Traffic delay on routes through the Madison Isthmus",
+    title = "Travel time on routes through the Madison Isthmus",
     subtitle = "Deviation of current projected from historical travel time",
+    caption = "Data: Google Routes API"
+  )
+
+full_routes |> 
+  filter(route_id %in% c("JND to Milwaukee via E Wash", "JND to Milwaukee via Willy")) |> 
+  filter(date(request_time) == "2025-09-13") |> 
+  ggplot(aes(request_time, duration, color = route_id)) +
+  geom_point() +
+  #gghighlight::gghighlight(rush_hour %in% c("am", "pm")) +
+#  facet_wrap(vars(direction, route_id), nrow = 2) +
+  theme() +
+  hrbrthemes::theme_ipsum() +
+  xlab(element_blank()) +
+  ylab("Travel time (seconds)") +
+  labs(
+    title = "Travel time from JND/North Shore to E Wash/Milwaukee",
+    subtitle = "via E Wash or via Willy",
     caption = "Data: Google Routes API"
   )
 
