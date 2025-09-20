@@ -160,6 +160,7 @@ full_routes_clean <- full_routes |>
       destination == "Eastwood_at_Winnebago" &
       intermediate == "Willy_at_Ingersoll" ~ "Hairball to Eastwood"),
     duration = as.integer(str_remove(duration, "s")),
+    duration_minutes = duration/60, 
     static_duration = as.integer(str_remove(static_duration, "s")),
     traffic_delay = duration - static_duration,
     direction = case_match(route_id,
