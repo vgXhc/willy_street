@@ -176,6 +176,6 @@ full_routes_clean <- full_routes |>
   ) |>
   filter(!is.na(route_id))
 
-#saveRDS(full_routes_clean, file = "data/data_clean.RDS")
+saveRDS(full_routes_clean, file = "data/data_clean.RDS")
 write_csv(full_routes_clean, file = "data/data_clean.csv")
   
