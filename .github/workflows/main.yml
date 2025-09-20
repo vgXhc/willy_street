@@ -49,7 +49,7 @@ on:
 
 jobs:
   update_routes:
-    runs-on: ubuntu-latest
+    runs-on: macOS-latest
     env:
       S3_WILLY_KEY: ${{ secrets.S3_WILLY_KEY }}
       S3_WILLY_SECRET: ${{ secrets.S3_WILLY_SECRET }}
