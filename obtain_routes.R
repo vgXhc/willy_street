@@ -128,3 +128,54 @@ board |> pin_write(full_routes,
                    "full_routes",
                    versioned = TRUE,
                    type = "rds")
+
+full_routes |> write_csv(file = "data_raw.csv")
+
+# basic data cleaning and variable creation
+full_routes_clean <- full_routes |> 
+  filter(!(origin == "JND_at_North_Shore" & destination == "Willy_at_Ingersoll")) |> 
+  mutate(route_id = case_when(
+    origin == "JND_at_North_Shore" & 
+      destination == "Olbrich_boat_launch" & 
+      intermediate == "Willy_at_Ingersoll" ~ "JND to Olbrich",
+    origin == "Olbrich_boat_launch" &
+      destination == "JND_at_North_Shore" &
+      intermediate == "Willy_at_Ingersoll" ~ "Olbrich to JND",
+    origin == "E_Wash_at_Milwaukee" &
+      destination == "JND_at_North_Shore" &
+      intermediate == "E_Wash_at_First" ~ "Milwaukee to JND via E Wash",
+    destination == "E_Wash_at_Milwaukee" &
+      origin == "JND_at_North_Shore" &
+      intermediate == "E_Wash_at_First" ~ "JND to Milwaukee via E Wash",
+    origin == "E_Wash_at_Milwaukee" &
+      destination == "JND_at_North_Shore" &
+      intermediate == "Willy_at_Ingersoll" ~ "Milwaukee to JND via Willy",
+    destination == "E_Wash_at_Milwaukee" &
+      origin == "JND_at_North_Shore" &
+      intermediate == "Willy_at_Ingersoll" ~ "JND to Milwaukee via Willy",
+    destination == "Wilson_at_Willy" &
+      origin == "Eastwood_at_Winnebago" &
+      intermediate == "Willy_at_Ingersoll" ~ "Eastwood to Hairball",
+    origin == "Wilson_at_Willy" &
+      destination == "Eastwood_at_Winnebago" &
+      intermediate == "Willy_at_Ingersoll" ~ "Hairball to Eastwood"),
+    duration = as.integer(str_remove(duration, "s")),
+    static_duration = as.integer(str_remove(static_duration, "s")),
+    traffic_delay = duration - static_duration,
+    direction = case_match(route_id,
+                           c("JND to Olbrich",
+                             "JND to Milwaukee via E Wash",
+                             "JND to Milwaukee via Willy",
+                             "Hairball to Eastwood") ~ "EB",.default = "WB"),
+    day_of_week = wday(request_time, label = TRUE),
+    weekend = ifelse(day_of_week %in% c("Sat", "Sun"), TRUE, FALSE), 
+    rush_hour = case_when(
+      !weekend & (hour(request_time) == 7 | (hour(request_time) == 8 & minute(request_time) <= 30)) ~ "am",
+      !weekend & (hour(request_time) == 16 | (hour(request_time) == 17 & minute(request_time) <= 30)) ~ "pm",
+      .default = NA)
+  ) |>
+  filter(!is.na(route_id))
+
+saveRDS(full_routes_clean, file = "data/data_clean.RDS")
+write_csv(full_routes_clean, file = "data/data_clean.csv")
+  
