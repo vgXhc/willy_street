@@ -11,6 +11,7 @@ categories:
   - transportation
   - Madison (WI)
 output: distill::distill_article
+creative_commons: CC BY
 ---
 
 ```{r setup, include=FALSE}
@@ -202,7 +203,7 @@ So traveling on Willy Street is fastest in the middle of the night. And the outl
 
 Of course what we're most interested in are the times during rush hour, when previously there would have been two lanes of traffic and now there is only one. Are the longer travel times during those periods? Graphically, this chart gives a good flavor:
 
-```{r}
+```{r preview=TRUE}
 willy_routes |> 
   ggplot(aes(duration_minutes, rush_hour, color = rush_hour)) +
   geom_boxplot(outliers = FALSE) +
