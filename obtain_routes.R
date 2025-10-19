@@ -87,24 +87,9 @@ jnd_olbrich <- get_route(origin = "JND_at_North_Shore",
                          destination = "Olbrich_boat_launch",
                          intermediate = "Willy_at_Ingersoll")
 
-jnd_milwaukee <- get_route(origin = "JND_at_North_Shore",
-                           destination = "E_Wash_at_Milwaukee",
-                           intermediate = "E_Wash_at_First")
-jnd_milwaukee_willy <- get_route(origin = "JND_at_North_Shore",
-                                 intermediate = "Willy_at_Ingersoll",
-                                 destination = "E_Wash_at_Milwaukee")
-
 olbrich_jnd <- get_route(origin = "Olbrich_boat_launch",
                          destination = "JND_at_North_Shore",
                          intermediate = "Willy_at_Ingersoll")
-
-milwaukee_jnd <- get_route(destination = "JND_at_North_Shore",
-                           origin = "E_Wash_at_Milwaukee",
-                           intermediate = "E_Wash_at_First")
-
-milwaukee_jnd_willy <- get_route(destination = "JND_at_North_Shore",
-                                 origin = "E_Wash_at_Milwaukee",
-                                 intermediate = "Willy_at_Ingersoll")
 
 hairball_eastwood <- get_route(origin = "Wilson_at_Willy",
                                destination = "Eastwood_at_Winnebago",
@@ -116,11 +101,6 @@ eastwood_hairball <- get_route(destination = "Wilson_at_Willy",
 full_routes <- bind_rows(
   full_routes_pre,
   jnd_olbrich,
-  jnd_milwaukee_willy,
-  jnd_milwaukee,
-  olbrich_jnd,
-  milwaukee_jnd,
-  milwaukee_jnd_willy,
   hairball_eastwood,
   eastwood_hairball
 )
