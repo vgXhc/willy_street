@@ -3,8 +3,12 @@ Using Google Maps API to get real-time traffic data during the Willy Street tria
 
 You can read more about the background of this [on my blog](https://haraldkliems.netlify.app/posts/2025-09-13-using-the-google-routes-api-to-collect-travel-time-data-during-a-traffic-trial/). The code has been updated since then.
 
+There are two blog posts analyzing the data:
+- [Travel times on Willy Street](https://haraldkliems.netlify.app/posts/travel-times-on-willy-street/)
+- [Travel times on Willy Street, Part 2](https://haraldkliems.netlify.app/posts/travel-times-on-willy-street-part-2/)
+
 ## Data
-A raw data set is committed after each run in [`data/data_raw.csv`](data/data_raw.csv). Unless you have a good reason to use the raw data, you should use one of the cleaned files instead. Those create a number of additional variables to facilitate analysis (see codebook below) and remove entries with incorrect or incomplete data. The clean data is available as a [`csv`](data/data_clean.csv) or [`RDS`](data/data_clean.RDS) file.
+A raw data set is committed after each run in [`data/data_raw.csv`](data/data_raw.csv). Unless you have a good reason to use the raw data, you should use one of the cleaned files instead. Those create a number of additional variables to facilitate analysis (see codebook below) and remove entries with incorrect or incomplete data. The clean data is available as a [`csv`](data/data_clean.csv) or [`RDS`](data/data_clean.RDS) file. Data collection was stopped on November 3, 2025.
 
 ## Codebook
 
