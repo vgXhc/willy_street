@@ -1,7 +1,7 @@
 ---
-title: "Travel times on Willy Street"
+title: "Travel times on Willy Street, Part 2"
 description: |
-  A preliminary look at the data during the rush hour lane closure trial
+  Another look at travel time estimates, now including the JND construction
 author:
   - name: Harald Kliems 
     orcid_id: 0000-0003-2542-0047
@@ -18,24 +18,19 @@ creative_commons: CC BY
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-It's September 29 and we are several weeks into the Willy Street rush hour lane removal trial. As described in a [previous post](https://haraldkliems.netlify.app/posts/2025-09-13-using-the-google-routes-api-to-collect-travel-time-data-during-a-traffic-trial/), I have been collecting travel time estimates from the Google Routes API. It's time to take a closer look at the data. 
+Disclaimer: This post was put together quickly. Please excuse any typos or self-plagarism from the previous post on this. 
+
+Travel time data collection has continued on Willy Street, and now the closure is back on the agenda for the Transportation Commission. Since [the last post](https://haraldkliems.netlify.app/posts/travel-times-on-willy-street/), construction on John Nolen Drive has begun as well. Traffic Engineering staff anticipated that that construction (which takes John Nolen Drive down to one lane in each direction) would also affect traffic on Willy Street. Let's take a look at what the data say.
 
 
 ```{r}
-library(pins)
 library(tidyverse)
 library(tmap)
 library(sf)
 library(gt)
 
-board <- board_s3("willy2", 
-                  region = "us-east-1", 
-                  access_key = Sys.getenv("S3_WILLY_KEY"), 
-                  secret_access_key = Sys.getenv("S3_WILLY_SECRET"))
 
-full_routes <- pin_read(board, 
-                        "full_routes",
-                        version = "20250929T182932Z-b1326")
+full_routes <- read_csv("data/data_raw.csv")
 
 full_routes <- full_routes |> 
   filter(!(origin == "JND_at_North_Shore" & destination == "Willy_at_Ingersoll")) |> 
@@ -76,6 +71,7 @@ full_routes <- full_routes |>
     request_time = with_tz(request_time, tzone = "US/Central"),
     day_of_week = wday(with_tz(request_time, tzone = "US/Central"), label = TRUE),
     weekend = ifelse(day_of_week %in% c("Sat", "Sun"), TRUE, FALSE), 
+    jnd_construction = ifelse(date(request_time) < date("2025-10-14"), "pre-JND construction", "JND construction"),
     rush_hour = case_when(
       !weekend & (hour(request_time) == 7 | (hour(request_time) == 8 & minute(request_time) <= 30)) ~ "am",
       !weekend & (hour(request_time) == 16 | (hour(request_time) == 17 & minute(request_time) <= 30)) ~ "pm",
@@ -87,7 +83,7 @@ full_routes <- full_routes |>
 
 # Willy Street travel times
 
-This post will only analyze data for the most directly affected route: Going from the "Hairball Intersection" of Williamson, Wilson, Blount, and John Nolen to where Williamson splits into Eastwood and Winnebago, and vice versa. This is the section where the rush hour lanes were converted into parking lanes and one would expect the largest impact. Because we don't have data from before the start of the trial, everything that follows is descriptive and we can't say that what we're seeing is or isn't associated with or caused by the trial.
+As a reminder, we only analyze data for the most directly affected route: Going from the "Hairball Intersection" of Williamson, Wilson, Blount, and John Nolen to where Williamson splits into Eastwood and Winnebago, and vice versa. This is the section where the rush hour lanes were converted into parking lanes and one would expect the largest impact. Because we don't have data from before the start of the trial, everything that follows is descriptive and we can't say that what we're seeing is or isn't associated with or caused by the trial.
 
 
 ```{r}
@@ -99,7 +95,6 @@ willy_routes <- full_routes |>
 
 The first data point for this route was collected on `r date(willy_routes |> arrange(request_time) |> pull(request_time) |> head(1))`; the last one was on `r date(willy_routes |> arrange(desc(request_time)) |> pull(request_time) |> head(1))`, and we have request route data `r nrow(willy_routes)` times. 
 
-First, we do a quick data check. We want to make sure that all routes were indeed routed via Willy Street. Under normal circumstances, there is little reason for Google to propose a different route, especially since the route includes a via point on Willy and Ingersoll. But it's  better to confirm this. 
 
 ```{r}
 decode_polyline <- function(polyline_string) {
@@ -114,16 +109,9 @@ linestring <- st_linestring(as.matrix(coords[, c("lon", "lat")]))
 return(list(linestring))
 }
 
-tmap_mode("view")
-willy_routes |> 
-  rowwise() |> 
-  mutate(linestring = decode_polyline(polyline)) |> 
-  st_as_sf(sf_column_name = "linestring") |> 
-  tm_shape() +
-  tm_lines(col = "red", col_alpha = 0.03)
 ```
 
-Indeed, we find a few trips via E Wash, Jenifer, and Main St. These all happened during the weekend of the Willy Street Fair, when several blocks of the street were shut down to motor vehicles. We will exclude these from the analysis. 
+As before, we exclude any routes that don't go via Willy Street, such as data pulls that happened during Willy Street Fair, when several blocks of the street were closed to motor vehicles. We will exclude these from the analysis. 
 
 ```{r}
 willy_routes <- willy_routes |> 
@@ -133,16 +121,24 @@ willy_routes <- willy_routes |>
                           "ux~eGdtk`PxDtCrKnLd@l@jJ~N~DrG~D|G_O~Sw@fAb\\lh@dInMtLcQFGb@Q",
                           "ux~eGdtk`PxDtCrKnLd@l@jJ~N~DrG~D|GdCqD`ErGjOdV\\~@yBbD`CzDt@tAp@`B`AbB`@v@Pp@z@xG"
                           ))
+
+tmap_mode("view")
+willy_routes |> 
+  rowwise() |> 
+  mutate(linestring = decode_polyline(polyline)) |> 
+  st_as_sf(sf_column_name = "linestring") |> 
+  tm_shape() +
+  tm_lines(col = "red", col_alpha = 0.03)
 ```
 
 
 # Overall travel times
 
-Let's start with some numbers for the EB and WB direction overall. This number gives us a good sense of what typical travel times look like and how much they vary.
+Here are overall summaries for travel times, grouped by direction and whether the data were pulled before or during the JND construction (i.e. before October 14)  These number give us a good sense of what typical travel times look like and how much they vary.
 
 ```{r}
 percentiles <- willy_routes |> 
-  group_by(direction) |> 
+  group_by(direction, jnd_construction) |> 
   summarise(
           mean = mean(duration_minutes),
           median = median(duration_minutes),
@@ -167,27 +163,15 @@ percentiles |>
 
 ```
 
-On average, it takes `r round(percentiles[1,]$mean,1)` minutes to make the eastbound trip and `r round(percentiles[1,]$mean,1)` minutes for the westbound one. At best, you can make it in `r round(percentiles[1,]$min,1)` minutes EB and `r round(percentiles[2,]$min,1)` minutes WB. And at worst, the trip takes `r round(percentiles[1,]$max,1)` minutes EB and `r round(percentiles[2,]$max,1)` minutes WB. The rightmost column shows the range of how long 90% of all trips take. So for the WB direction, 90% of all trips take between `r percentiles[2,]$duration_90` minutes; EB you can expect your trips to take between `r percentiles[1,]$duration_90` most of the time.
+On average, it takes `r round(percentiles[1,]$mean,1)` minutes to make the eastbound trip and `r round(percentiles[1,]$mean,1)` minutes for the westbound one. At best, you can make it in `r round(percentiles[1,]$min,1)` minutes EB and `r round(percentiles[2,]$min,1)` minutes WB. And at worst, the trip takes `r round(percentiles[1,]$max,1)` minutes EB and `r round(percentiles[2,]$max,1)` minutes WB. The rightmost column shows the range of how long 90% of all trips take. So for the WB direction, 90% of all trips take between `r percentiles[2,]$duration_90` minutes; EB you can expect your trips to take between `r percentiles[1,]$duration_90` most of the time. Construction on JND makes practically no difference for the mean and median travel time.
 
-When was travel the fastest? Here are the dates for the 10 shortes and longest trips:
+When were delays at their worst? Here are 10 longest trips:
 
 ```{r}
-willy_routes |> 
-  arrange(duration_minutes) |> 
-  select(duration_minutes, request_time, direction) |> 
-  head() |> 
-  gt() |> 
-  fmt_number(columns = where(is.numeric), decimals = 1) |> 
-  fmt_datetime(columns = request_time, date_style = "MMMd", time_style = "h_m_p") |> 
-  tab_header(title = "10 shortest travel times") |> 
-  cols_label(direction = "Direction",
-             duration_minutes = "Travel time (minutes)",
-             request_time = "Time/date"
-             )
 
 willy_routes |> 
   arrange(desc(duration_minutes)) |> 
-  select(duration_minutes, request_time, direction) |> 
+  select(duration_minutes, request_time, direction, jnd_construction) |> 
   head() |> 
   gt() |> 
   fmt_number(columns = where(is.numeric), decimals = 1) |> 
@@ -195,81 +179,80 @@ willy_routes |>
   tab_header(title = "10 longest travel times") |> 
   cols_label(direction = "Direction",
              duration_minutes = "Travel time (minutes)",
-             request_time = "Time/date"
+             request_time = "Time/date",
+             jnd_construction = "JND construction?"
              )
   
 ```
 
-So traveling on Willy Street is fastest in the middle of the night. And the outliers for slow times tend to be in the morning and evening peak, but not exclusively so.
+Except for one date, the longest travel times occurred before construction began on John Nolen Drive.
 
 # A closer look at rush hour data
 
-Of course what we're most interested in are the times during rush hour, when previously there would have been two lanes of traffic and now there is only one. Are the longer travel times during those periods? Graphically, this chart gives a good flavor:
+As before, we look more closely at rush hour data. Again, we group the data by direction and add a grouping for the JND construction:
 
-```{r preview=TRUE}
+```{r, layout="l-body-outset", preview=TRUE}
 willy_routes |> 
-  ggplot(aes(duration_minutes, rush_hour, color = rush_hour)) +
+  ggplot(aes(duration_minutes, rush_hour, color = jnd_construction)) +
   geom_boxplot(outliers = FALSE) +
-  geom_jitter(alpha = .3) +
+  geom_jitter(alpha = .1, height = .3) +
   facet_wrap(vars(direction)) +
   hrbrthemes::theme_ipsum() +
   ylab("Rush hour") +
   xlab("Estimated travel times (minutes)") +
   labs(title = "Estimated travel times between the Hairball and Eastwood/Winnebago") +
-  theme(legend.position = "none")
+  theme(legend.position = "bottom")
 ```
 
-The graph shows the estimated travel times, separated into eastbound and westbound and whether the estimates are for times when the rush hour lanes would or wouldn't have been in effect. The thick line in the middle of the box is the median duration; the edges of the box are the 25th and 75th percentile. For the eastbound direction, we see that the median during evening and morning rush hour is similar, whereas it is lower during non-rush hour. Westbound, the evening rush hour has by far the longest median duration, whereas the morning rush hour actually is faster than non-rush hour times. We also see a lot of variability in the non-rush times.
+The graph shows the estimated travel times, separated into eastbound and westbound, whether the estimates are for times when the rush hour lanes would or wouldn't have been in effect, and for pre- and during JND construction. The thick line in the middle of the box is the median duration; the edges of the box are the 25th and 75th percentile. For the eastbound direction, we see that the median during evening and morning rush hour is similar. The construction on JND appears to have sped up EB traffic in both the pm and am rush hour. Westbound, PM traffic is much slower than AM traffic. In the pm rush hour, the JND construction again seems to have made traffic faster. For both EB and WB traffic, the variability of travel times was largest in the PM rush hour, before JND construction started.
 
 If we want to compare eastbound and westbound times, this chart makes that easier:
 
-```{r}
+```{r, layout="l-body-outset"}
  willy_routes |> 
-  ggplot(aes(duration_minutes, direction, color = direction)) +
+  ggplot(aes(duration_minutes, direction, color = jnd_construction)) +
   geom_boxplot(outliers = FALSE) +
-  geom_jitter(alpha = .3, height = .15) +
+  geom_jitter(alpha = .1, height = .15) +
   facet_wrap(vars(rush_hour)) +
   hrbrthemes::theme_ipsum() +
   ylab("Direction") +
   xlab("Estimated travel times (minutes)") +
   labs(title = "Estimated travel times between the Hairball and Eastwood/Winnebago") +
-  theme(legend.position = "none")
+  theme(legend.position = "bottom")
 ```
 
-In the morning, EB and WB times are similar. Outside of rush hour, WB trips generally take a little longer. And in the afternoon rush hour, WB trips are noticeably slower than EB. 
+In the morning, EB and WB times are similar. Outside of rush hour, WB trips generally take a little longer. And in the afternoon rush hour, WB trips are noticeably slower than EB. Construction on JND seems to mostly make a difference for both EB and WB trips during the PM rush hour. 
 
-```{r}
+```{r, layout="l-body-outset"}
 
   
 
 willy_routes |> 
   filter(rush_hour == "am") |> 
-  ggplot(aes(duration_minutes, direction, color = direction)) +
+  ggplot(aes(duration_minutes, direction, color = jnd_construction)) +
   geom_boxplot(outliers = FALSE) +
   geom_jitter() +
   hrbrthemes::theme_ipsum() +
   ylab("Direction") +
   xlab("Estimated travel times (minutes)") +
    labs(title = "Morning rush hour between Hairball and Eastwood/Winnebago") +
-  theme(legend.position = "none")
+  theme(legend.position = "bottom")
 ```
 
-During the morning rush hour, the rush hour travel lane used to be in effect only for westbound travel. What we see here is that westbound travel, now without the rush travel lane, generally is a little faster than eastbound traffic. But the difference isn't large, and we also see that there is more variability in westbound than in eastbound travel. 
+During the morning rush hour, the rush hour travel lane used to be in effect only for westbound travel. What we see here is that westbound travel, now without the rush travel lane, generally is a little faster than eastbound traffic. But the difference isn't large, and we also see that there is more variability in westbound than in eastbound travel. Construction on JND doesn't seem to make much of a difference.
 
 What about the evening?
-```{r}
+```{r, layout="l-body-outset"}
 willy_routes |> 
   filter(rush_hour == "pm") |> 
-  ggplot(aes(duration_minutes, direction, color = direction)) +
+  ggplot(aes(duration_minutes, direction, color = jnd_construction)) +
   geom_boxplot(outliers = FALSE) +
   geom_jitter() +
   hrbrthemes::theme_ipsum() +
   ylab("Direction") +
   xlab("Estimated travel times (minutes)") +
    labs(title = "Afternoon rush hour between Hairball and Eastwood/Winnebago") +
-  theme(legend.position = "none")
+  theme(legend.position = "bottom")
 ```
 
-Here it gets interesting. Remember, in the evening, the rush hour lanes used to be in effect for EB traffic! But now that they no longer exist, EB traffic is noticeably faster than WB traffic---about one minute difference for the median time. Maybe if we bring back the rush hour lanes, they should be reversed, with a WB rush hour lane in the afternoon...
-
-I don't think there is a whole lot more to be done for analysis unless I get access to travel time data from before the start of the trial. Or the trial ends and I can collect post-trial data. I'll share this report with city staff and see if it's helpful to them. 
+When we last looked at the data, this was the most interesting finding: Even though the rush hour lanes used to be in effect for EB traffic in the PM rush hour, EB traffic was noticeably faster than WB traffic. This still holds true. When I had shared this finding with city staff, they mentioned that they had made adjustments to signal timing that would explain this. Regarding JND construction: We see less variability in travel times since construction started, and slightly lower travel times compared to pre-construction. 
