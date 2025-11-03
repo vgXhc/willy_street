@@ -1,0 +1,275 @@
+---
+title: "Travel times on Willy Street"
+description: |
+  A preliminary look at the data during the rush hour lane closure trial
+author:
+  - name: Harald Kliems 
+    orcid_id: 0000-0003-2542-0047
+    url: https://haraldkliems.netlify.app/
+date: "`r Sys.Date()`"
+categories:
+  - transportation
+  - Madison (WI)
+output: distill::distill_article
+creative_commons: CC BY
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+It's September 29 and we are several weeks into the Willy Street rush hour lane removal trial. As described in a [previous post](https://haraldkliems.netlify.app/posts/2025-09-13-using-the-google-routes-api-to-collect-travel-time-data-during-a-traffic-trial/), I have been collecting travel time estimates from the Google Routes API. It's time to take a closer look at the data. 
+
+
+```{r}
+library(pins)
+library(tidyverse)
+library(tmap)
+library(sf)
+library(gt)
+
+board <- board_s3("willy2", 
+                  region = "us-east-1", 
+                  access_key = Sys.getenv("S3_WILLY_KEY"), 
+                  secret_access_key = Sys.getenv("S3_WILLY_SECRET"))
+
+full_routes <- pin_read(board, 
+                        "full_routes",
+                        version = "20250929T182932Z-b1326")
+
+full_routes <- full_routes |> 
+  filter(!(origin == "JND_at_North_Shore" & destination == "Willy_at_Ingersoll")) |> 
+  mutate(route_id = case_when(
+    origin == "JND_at_North_Shore" & 
+      destination == "Olbrich_boat_launch" & 
+      intermediate == "Willy_at_Ingersoll" ~ "JND to Olbrich",
+    origin == "Olbrich_boat_launch" &
+      destination == "JND_at_North_Shore" &
+      intermediate == "Willy_at_Ingersoll" ~ "Olbrich to JND",
+    origin == "E_Wash_at_Milwaukee" &
+      destination == "JND_at_North_Shore" &
+      intermediate == "E_Wash_at_First" ~ "Milwaukee to JND via E Wash",
+    destination == "E_Wash_at_Milwaukee" &
+      origin == "JND_at_North_Shore" &
+      intermediate == "E_Wash_at_First" ~ "JND to Milwaukee via E Wash",
+    origin == "E_Wash_at_Milwaukee" &
+      destination == "JND_at_North_Shore" &
+      intermediate == "Willy_at_Ingersoll" ~ "Milwaukee to JND via Willy",
+    destination == "E_Wash_at_Milwaukee" &
+      origin == "JND_at_North_Shore" &
+      intermediate == "Willy_at_Ingersoll" ~ "JND to Milwaukee via Willy",
+    destination == "Wilson_at_Willy" &
+      origin == "Eastwood_at_Winnebago" &
+      intermediate == "Willy_at_Ingersoll" ~ "Eastwood to Hairball",
+    origin == "Wilson_at_Willy" &
+      destination == "Eastwood_at_Winnebago" &
+      intermediate == "Willy_at_Ingersoll" ~ "Hairball to Eastwood"),
+    duration = as.integer(str_remove(duration, "s")),
+    duration_minutes = duration/60, 
+    static_duration = as.integer(str_remove(static_duration, "s")),
+    traffic_delay = duration - static_duration,
+    direction = case_match(route_id,
+                           c("JND to Olbrich",
+                             "JND to Milwaukee via E Wash",
+                             "JND to Milwaukee via Willy",
+                             "Hairball to Eastwood") ~ "EB",.default = "WB"),
+    request_time = with_tz(request_time, tzone = "US/Central"),
+    day_of_week = wday(with_tz(request_time, tzone = "US/Central"), label = TRUE),
+    weekend = ifelse(day_of_week %in% c("Sat", "Sun"), TRUE, FALSE), 
+    rush_hour = case_when(
+      !weekend & (hour(request_time) == 7 | (hour(request_time) == 8 & minute(request_time) <= 30)) ~ "am",
+      !weekend & (hour(request_time) == 16 | (hour(request_time) == 17 & minute(request_time) <= 30)) ~ "pm",
+      .default = "no")
+  ) |>
+  filter(!is.na(route_id))
+
+```
+
+# Willy Street travel times
+
+This post will only analyze data for the most directly affected route: Going from the "Hairball Intersection" of Williamson, Wilson, Blount, and John Nolen to where Williamson splits into Eastwood and Winnebago, and vice versa. This is the section where the rush hour lanes were converted into parking lanes and one would expect the largest impact. Because we don't have data from before the start of the trial, everything that follows is descriptive and we can't say that what we're seeing is or isn't associated with or caused by the trial.
+
+
+```{r}
+
+willy_routes <- full_routes |> 
+  filter(route_id %in% c("Hairball to Eastwood", "Eastwood to Hairball"))
+
+```
+
+The first data point for this route was collected on `r date(willy_routes |> arrange(request_time) |> pull(request_time) |> head(1))`; the last one was on `r date(willy_routes |> arrange(desc(request_time)) |> pull(request_time) |> head(1))`, and we have request route data `r nrow(willy_routes)` times. 
+
+First, we do a quick data check. We want to make sure that all routes were indeed routed via Willy Street. Under normal circumstances, there is little reason for Google to propose a different route, especially since the route includes a via point on Willy and Ingersoll. But it's  better to confirm this. 
+
+```{r}
+decode_polyline <- function(polyline_string) {
+
+  # Decode the polyline to get lat/lng coordinates
+  coords <- googlePolylines::decode(polyline_string)
+  coords <- coords[[1]]
+
+    # Create an sf LINESTRING object
+linestring <- st_linestring(as.matrix(coords[, c("lon", "lat")]))
+
+return(list(linestring))
+}
+
+tmap_mode("view")
+willy_routes |> 
+  rowwise() |> 
+  mutate(linestring = decode_polyline(polyline)) |> 
+  st_as_sf(sf_column_name = "linestring") |> 
+  tm_shape() +
+  tm_lines(col = "red", col_alpha = 0.03)
+```
+
+Indeed, we find a few trips via E Wash, Jenifer, and Main St. These all happened during the weekend of the Willy Street Fair, when several blocks of the street were shut down to motor vehicles. We will exclude these from the analysis. 
+
+```{r}
+willy_routes <- willy_routes |> 
+  filter(!polyline %in% c("ux~eGdtk`PxDtCrKnLd@l@jJ~N~DrG~D|GdCqD`ErGjOdV\\~@yBbD`CzDt@tAp@`B`AbB`@v@Pp@z@xG",
+                          "ai|eGreo`PXG_AiHSq@mDeGk@y@E?aCwDwCfEoFtH}BgDsRc[`E_G~D}FsFiJcM}Rs@iAoB}BiI_JyDuC",
+                          "ai|eGreo`PXG_AiHSq@mDeGk@y@E?aCwDxBcD]_AuTu]Wc@eCpDsFiJcM}Rs@iAoB}BiI_JyDuC",
+                          "ux~eGdtk`PxDtCrKnLd@l@jJ~N~DrG~D|G_O~Sw@fAb\\lh@dInMtLcQFGb@Q",
+                          "ux~eGdtk`PxDtCrKnLd@l@jJ~N~DrG~D|GdCqD`ErGjOdV\\~@yBbD`CzDt@tAp@`B`AbB`@v@Pp@z@xG"
+                          ))
+```
+
+
+# Overall travel times
+
+Let's start with some numbers for the EB and WB direction overall. This number gives us a good sense of what typical travel times look like and how much they vary.
+
+```{r}
+percentiles <- willy_routes |> 
+  group_by(direction) |> 
+  summarise(
+          mean = mean(duration_minutes),
+          median = median(duration_minutes),
+          min = min(duration_minutes),
+          max = max(duration_minutes),
+          duration_5_pct = quantile(duration_minutes, c(0.05)),
+          duration_95_pct = quantile(duration_minutes, c(0.95))) |> 
+  mutate(duration_90 = paste0(round(duration_5_pct, 1), "-", round(duration_95_pct,1 )))
+
+percentiles |> 
+  select(-duration_5_pct, -duration_95_pct) |> 
+  gt() |> 
+  fmt_number(columns = where(is.numeric), decimals = 1) |> 
+  tab_header(title = "Estimated travel times on Willy St (minutes)") |> 
+  cols_label(direction = "Direction",
+             mean = "Mean",
+             median = "Median",
+             min = "Minimum",
+             max = "Maximum",
+             duration_90 = "90% of trips"
+             )
+
+```
+
+On average, it takes `r round(percentiles[1,]$mean,1)` minutes to make the eastbound trip and `r round(percentiles[1,]$mean,1)` minutes for the westbound one. At best, you can make it in `r round(percentiles[1,]$min,1)` minutes EB and `r round(percentiles[2,]$min,1)` minutes WB. And at worst, the trip takes `r round(percentiles[1,]$max,1)` minutes EB and `r round(percentiles[2,]$max,1)` minutes WB. The rightmost column shows the range of how long 90% of all trips take. So for the WB direction, 90% of all trips take between `r percentiles[2,]$duration_90` minutes; EB you can expect your trips to take between `r percentiles[1,]$duration_90` most of the time.
+
+When was travel the fastest? Here are the dates for the 10 shortes and longest trips:
+
+```{r}
+willy_routes |> 
+  arrange(duration_minutes) |> 
+  select(duration_minutes, request_time, direction) |> 
+  head() |> 
+  gt() |> 
+  fmt_number(columns = where(is.numeric), decimals = 1) |> 
+  fmt_datetime(columns = request_time, date_style = "MMMd", time_style = "h_m_p") |> 
+  tab_header(title = "10 shortest travel times") |> 
+  cols_label(direction = "Direction",
+             duration_minutes = "Travel time (minutes)",
+             request_time = "Time/date"
+             )
+
+willy_routes |> 
+  arrange(desc(duration_minutes)) |> 
+  select(duration_minutes, request_time, direction) |> 
+  head() |> 
+  gt() |> 
+  fmt_number(columns = where(is.numeric), decimals = 1) |> 
+  fmt_datetime(columns = request_time, date_style = "MMMd", time_style = "h_m_p") |> 
+  tab_header(title = "10 longest travel times") |> 
+  cols_label(direction = "Direction",
+             duration_minutes = "Travel time (minutes)",
+             request_time = "Time/date"
+             )
+  
+```
+
+So traveling on Willy Street is fastest in the middle of the night. And the outliers for slow times tend to be in the morning and evening peak, but not exclusively so.
+
+# A closer look at rush hour data
+
+Of course what we're most interested in are the times during rush hour, when previously there would have been two lanes of traffic and now there is only one. Are the longer travel times during those periods? Graphically, this chart gives a good flavor:
+
+```{r preview=TRUE}
+willy_routes |> 
+  ggplot(aes(duration_minutes, rush_hour, color = rush_hour)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_jitter(alpha = .3) +
+  facet_wrap(vars(direction)) +
+  hrbrthemes::theme_ipsum() +
+  ylab("Rush hour") +
+  xlab("Estimated travel times (minutes)") +
+  labs(title = "Estimated travel times between the Hairball and Eastwood/Winnebago") +
+  theme(legend.position = "none")
+```
+
+The graph shows the estimated travel times, separated into eastbound and westbound and whether the estimates are for times when the rush hour lanes would or wouldn't have been in effect. The thick line in the middle of the box is the median duration; the edges of the box are the 25th and 75th percentile. For the eastbound direction, we see that the median during evening and morning rush hour is similar, whereas it is lower during non-rush hour. Westbound, the evening rush hour has by far the longest median duration, whereas the morning rush hour actually is faster than non-rush hour times. We also see a lot of variability in the non-rush times.
+
+If we want to compare eastbound and westbound times, this chart makes that easier:
+
+```{r}
+ willy_routes |> 
+  ggplot(aes(duration_minutes, direction, color = direction)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_jitter(alpha = .3, height = .15) +
+  facet_wrap(vars(rush_hour)) +
+  hrbrthemes::theme_ipsum() +
+  ylab("Direction") +
+  xlab("Estimated travel times (minutes)") +
+  labs(title = "Estimated travel times between the Hairball and Eastwood/Winnebago") +
+  theme(legend.position = "none")
+```
+
+In the morning, EB and WB times are similar. Outside of rush hour, WB trips generally take a little longer. And in the afternoon rush hour, WB trips are noticeably slower than EB. 
+
+```{r}
+
+  
+
+willy_routes |> 
+  filter(rush_hour == "am") |> 
+  ggplot(aes(duration_minutes, direction, color = direction)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_jitter() +
+  hrbrthemes::theme_ipsum() +
+  ylab("Direction") +
+  xlab("Estimated travel times (minutes)") +
+   labs(title = "Morning rush hour between Hairball and Eastwood/Winnebago") +
+  theme(legend.position = "none")
+```
+
+During the morning rush hour, the rush hour travel lane used to be in effect only for westbound travel. What we see here is that westbound travel, now without the rush travel lane, generally is a little faster than eastbound traffic. But the difference isn't large, and we also see that there is more variability in westbound than in eastbound travel. 
+
+What about the evening?
+```{r}
+willy_routes |> 
+  filter(rush_hour == "pm") |> 
+  ggplot(aes(duration_minutes, direction, color = direction)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_jitter() +
+  hrbrthemes::theme_ipsum() +
+  ylab("Direction") +
+  xlab("Estimated travel times (minutes)") +
+   labs(title = "Afternoon rush hour between Hairball and Eastwood/Winnebago") +
+  theme(legend.position = "none")
+```
+
+Here it gets interesting. Remember, in the evening, the rush hour lanes used to be in effect for EB traffic! But now that they no longer exist, EB traffic is noticeably faster than WB traffic---about one minute difference for the median time. Maybe if we bring back the rush hour lanes, they should be reversed, with a WB rush hour lane in the afternoon...
+
+I don't think there is a whole lot more to be done for analysis unless I get access to travel time data from before the start of the trial. Or the trial ends and I can collect post-trial data. I'll share this report with city staff and see if it's helpful to them. 
